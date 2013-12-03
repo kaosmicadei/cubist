@@ -7,7 +7,7 @@ import System.Random
 import Control.Monad (forM_)
 
 import qualified Graphics.Rendering.Cairo as Cairo
-import Graphics.Rendering.Cairo (Surface, Format(..))
+import Graphics.Rendering.Cairo (Surface)
 
 
 type Size = (Int, Int)
@@ -38,14 +38,17 @@ newPolygon numVertices (width, height) = do
   return (Polygon red green blue alpha vertices)
 
 
-draw :: Polygon -> Size -> IO ()
-draw Polygon{..} (width, height) =
-  Cairo.withImageSurface FormatARGB32 width height $ \surface -> do
-    Cairo.renderWith surface $ do
-      Cairo.setSourceRGB 1 1 1
-      Cairo.rectangle 0 0 (fromIntegral width) (fromIntegral height)
-      Cairo.fill
+draw :: [Polygon] -> Surface -> IO Surface
+draw polygons surface =
+  Cairo.renderWith surface $ do
+    width  <- fmap fromIntegral $ Cairo.imageSurfaceGetWidth  surface
+    height <- fmap fromIntegral $ Cairo.imageSurfaceGetHeight surface 
 
+    Cairo.setSourceRGB 1 1 1
+    Cairo.rectangle 0 0 width height
+    Cairo.fill
+
+    forM_ polygons $ \Polygon {..} -> do
       Cairo.setSourceRGBA red green blue alpha
       Cairo.setLineWidth 0
 
@@ -53,8 +56,9 @@ draw Polygon{..} (width, height) =
 
       Cairo.moveTo startX startY
 
-      forM_ vertices (\(x,y) -> Cairo.lineTo x y)
+      forM_ vertices $ \(x,y) ->
+        Cairo.lineTo x y
 
       Cairo.fill
 
-    Cairo.surfaceWriteToPNG surface "polygon.png"
+    return surface
