@@ -14,14 +14,16 @@ import Polygon
 
 main :: IO ()
 main = do
-  [imagePath] <- getArgs
+  [imagePath, numPolygons, numVertices] <- getArgs
 
   (goal, width, height) <- loadPNG imagePath
 
-  polygons <- listOfPolygons 5 (width, height) 10
+  polygons <- listOfPolygons (read numVertices :: Int) (width, height) (read numPolygons :: Int)
 
   surface <- Cairo.createImageSurface FormatARGB32 width height
   result <- draw polygons surface >>= Cairo.imageSurfaceGetData
+
+  Cairo.surfaceWriteToPNG surface "polygons.png"
 
   Cairo.surfaceFinish surface
   
