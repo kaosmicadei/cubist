@@ -20,6 +20,7 @@ data Polygon = Polygon { red      :: Double
                        , alpha    :: Double
                        , vertices :: [Position]
                        }
+  deriving (Show)
 
 
 newPolygon :: Int -> Size -> IO Polygon
@@ -36,6 +37,11 @@ newPolygon numVertices (width, height) = do
       vertices = take numVertices (zip xs ys)
 
   return (Polygon red green blue alpha vertices)
+
+
+listOfPolygons :: Int -> Size -> Int -> IO [Polygon]
+listOfPolygons numVertices size numPolygons =
+  sequence $ replicate numPolygons (newPolygon numVertices size)
 
 
 draw :: [Polygon] -> Surface -> IO Surface

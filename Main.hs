@@ -18,11 +18,10 @@ main = do
 
   (goal, width, height) <- loadPNG imagePath
 
-  polygon1 <- newPolygon 5 (width, height)
-  polygon2 <- newPolygon 5 (width, height)
+  polygons <- listOfPolygons 5 (width, height) 10
 
   surface <- Cairo.createImageSurface FormatARGB32 width height
-  result <- draw [polygon1, polygon2] surface >>= Cairo.imageSurfaceGetData
+  result <- draw polygons surface >>= Cairo.imageSurfaceGetData
 
   Cairo.surfaceFinish surface
   
