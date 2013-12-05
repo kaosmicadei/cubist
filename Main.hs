@@ -2,6 +2,9 @@ module Main where
 
 
 import System.Environment
+import Data.Time
+import System.Locale
+
 import qualified Data.ByteString as ByteString
 import Data.ByteString (ByteString)
 
@@ -18,20 +21,21 @@ main = do
 
   (goal, width, height) <- loadPNG imagePath
 
-  polygons <- listOfPolygons (read numVertices :: Int) (width, height) (read numPolygons :: Int)
+  polygon <- newPolygon (read numVertices :: Int) (width, height)
 
   surface <- Cairo.createImageSurface FormatARGB32 width height
-  result <- draw polygons surface >>= Cairo.imageSurfaceGetData
+  draw [polygon] surface
 
-  Cairo.surfaceWriteToPNG surface "polygons.png"
+  currentTime <- getZonedTime
+
+  Cairo.surfaceWriteToPNG surface $ formatTime defaultTimeLocale "%Y-%m-%d_%H-%M-%S.png" currentTime
+
+  polygonM <- mutatePolygon 0.25 polygon
+
+  draw [polygonM] surface
+
+  currentTime <- getZonedTime
+
+  Cairo.surfaceWriteToPNG surface $ formatTime defaultTimeLocale "%Y-%m-%d_%H-%M-%SM.png" currentTime
 
   Cairo.surfaceFinish surface
-  
-  print $ fitness result goal
-
- where
-  fitness :: ByteString -> ByteString -> Double
-  fitness bs1 bs2 = 1 - diff / fromIntegral (255 * ByteString.length bs2)
-   where
-    diff = sum . map fromIntegral $ ByteString.zipWith metric bs1 bs2
-    metric a b = abs (a - b)
