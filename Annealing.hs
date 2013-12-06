@@ -34,10 +34,10 @@ simulateAnnealing goal size@(width, height) numPolygons numVertices =
     nextSample goal initialDistance initialSample 1 surface
 
 
-nextSample :: (Fractional a, Ord a) => ByteString -> a -> Sample -> Int -> Surface -> IO ()
+nextSample :: ByteString -> Int -> Sample -> Int -> Surface -> IO ()
 nextSample _ _ _ 1800 _ = return ()
 
-nextSample _ d _ _ _ | d < 0.1 = return ()
+nextSample _ 0 _ _ _ = return ()
 
 nextSample goal previousDistance previousSample successes surface = do
   currentSample <- mutateSample 0.1 previousSample
@@ -71,7 +71,7 @@ mutateSample delta sample = do
   return $ sample // [(position, mutated)]
 
 
-metric :: Num a => ByteString -> ByteString -> a
+metric :: ByteString -> ByteString -> Int
 metric xs ys = sum $ zipWith (\x y -> abs (x-y)) xs' ys'
  where
   xs' = map fromIntegral $ ByteString.unpack xs
