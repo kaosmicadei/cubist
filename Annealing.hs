@@ -31,12 +31,10 @@ simulateAnnealing goal size@(width, height) numPolygons numVertices =
 
     surfaceWriteToPNG surface $ "images/" ++ show time ++ ".png"
 
-    nextSample goal initialDistance initialSample 1 surface
+    nextSample goal initialDistance initialSample 0 surface
 
 
 nextSample :: ByteString -> Int -> Sample -> Int -> Surface -> IO ()
-nextSample _ _ _ 1800 _ = return ()
-
 nextSample _ 0 _ _ _ = return ()
 
 nextSample goal previousDistance previousSample successes surface = do
