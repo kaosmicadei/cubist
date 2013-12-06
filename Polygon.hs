@@ -5,6 +5,10 @@ module Polygon where
 
 import System.Random
 import Control.Monad (forM_)
+import Control.Monad.IO.Class
+
+import qualified Data.Vector as Vector
+import Data.Vector (Vector)
 
 import qualified Graphics.Rendering.Cairo as Cairo
 import Graphics.Rendering.Cairo (Surface)
@@ -12,6 +16,7 @@ import Graphics.Rendering.Cairo (Surface)
 
 type Size = (Int, Int)
 type Position = (Double, Double)
+type Sample = Vector Polygon
 
 
 data Polygon = Polygon { red         :: !Double
@@ -21,18 +26,17 @@ data Polygon = Polygon { red         :: !Double
                        , size        :: !Size
                        , numVertices :: !Int
                        , vertices    :: [Position]
-                       }
-  deriving (Show)
+                       } deriving (Show)
 
 
-newPolygon :: Int -> Size -> IO Polygon
+newPolygon :: MonadIO m => Int -> Size -> m Polygon
 newPolygon numVertices (width, height) = do
-  g <- newStdGen
+  g <- liftIO newStdGen
 
   let [red, green, blue, alpha] = take 4 $ randomRs (0, 1 :: Double) g
 
-  gx <- newStdGen
-  gy <- newStdGen
+  gx <- liftIO newStdGen
+  gy <- liftIO newStdGen
 
   let xs = randomRs (0, fromIntegral width) gx
       ys = randomRs (0, fromIntegral height) gy
@@ -41,11 +45,16 @@ newPolygon numVertices (width, height) = do
   return (Polygon red green blue alpha (width, height) numVertices vertices)
 
 
-mutatePolygon :: Double -> Polygon -> IO Polygon
-mutatePolygon delta p@Polygon {..} = do
-  gen <- newStdGen
+newSample :: MonadIO m => Int -> Size -> Int -> m Sample
+newSample numVertices size numPolygons =
+  Vector.replicateM numPolygons (newPolygon numVertices size)
 
-  chance <- randomRIO (0, 1 :: Double)
+  
+mutatePolygon :: MonadIO m => Double -> Polygon -> m Polygon
+mutatePolygon delta p@Polygon {..} = do
+  gen <- liftIO newStdGen
+
+  chance <- liftIO $ randomRIO (0, 1 :: Double)
 
   if chance < 0.5
     then do
@@ -59,16 +68,16 @@ mutatePolygon delta p@Polygon {..} = do
                }
 
     else do
-      gen1 <- newStdGen
+      gen1 <- liftIO newStdGen
 
       let width  = fromIntegral (fst size)
           height = fromIntegral (snd size)
-          variationsX  = take numVertices $ shift (width * delta * delta)  gen
-          variationsY  = take numVertices $ shift (height * delta * delta) gen1
+          variationsX  = take numVertices $ shift (width * delta)  gen
+          variationsY  = take numVertices $ shift (height * delta) gen1
           newVertices  = map (normalizePosition size) $ zipWith move vertices (zip variationsX variationsY) 
           
       return p { vertices = newVertices }
-
+      
  where
   shift d g = randomRs (-d, d) g
 
@@ -81,14 +90,8 @@ mutatePolygon delta p@Polygon {..} = do
 
   move (x,y) (d1,d2) = (x + d1, y+ d2)
 
-  
 
-listOfPolygons :: Int -> Size -> Int -> IO [Polygon]
-listOfPolygons numVertices size numPolygons =
-  sequence $ replicate numPolygons (newPolygon numVertices size)
-
-
-draw :: [Polygon] -> Surface -> IO Surface
+draw :: MonadIO m => Sample -> Surface -> m Surface
 draw polygons surface =
   Cairo.renderWith surface $ do
     width  <- fmap fromIntegral $ Cairo.imageSurfaceGetWidth  surface
@@ -98,7 +101,7 @@ draw polygons surface =
     Cairo.rectangle 0 0 width height
     Cairo.fill
 
-    forM_ polygons $ \Polygon {..} -> do
+    forM_ (Vector.toList polygons) $ \Polygon {..} -> do
       Cairo.setSourceRGBA red green blue alpha
       Cairo.setLineWidth 0
 
