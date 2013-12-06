@@ -6,7 +6,7 @@ import qualified Data.ByteString as ByteString
 import Data.ByteString (ByteString)
 
 
-loadPNG :: FilePath -> IO (ByteString, Int, Int)
+loadPNG :: FilePath -> IO (ByteString, (Int, Int))
 loadPNG imagePath = do
   image <- Cairo.imageSurfaceCreateFromPNG imagePath
 
@@ -15,4 +15,4 @@ loadPNG imagePath = do
 
   imgData <- Cairo.imageSurfaceGetData image
 
-  return (imgData, width, height)
+  return (imgData, (width, height))

@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Annealing where
+module Annealing (simulateAnnealing) where
 
 
 import Polygon
@@ -8,6 +8,7 @@ import Polygon
 import Graphics.Rendering.Cairo
 
 import System.Random
+import System.Posix.Time
 import Control.Monad.IO.Class
 
 import qualified Data.ByteString as ByteString
@@ -17,11 +18,28 @@ import qualified Data.Vector as Vector
 import Data.Vector ((!), (//))
 
 
-evolveSample :: (Num a, Ord a) => ByteString -> a -> Sample -> Int -> Surface -> IO ()
-evolveSample _ _ _ 1000 _ = return ()
-evolveSample _ 1 _ _ _    = return ()
+simulateAnnealing :: ByteString -> Size -> Int -> Int -> IO ()
+simulateAnnealing goal size@(width, height) numPolygons numVertices =
+  withImageSurface FormatARGB32 width height $ \surface -> do
+    initialSample <- newSample numVertices size numPolygons
 
-evolveSample goal previousDistance previousSample generation surface = do
+    initialData <- draw initialSample surface >>= imageSurfaceGetData
+
+    let initialDistance = metric initialData goal
+
+    time <- epochTime
+
+    surfaceWriteToPNG surface $ "images/" ++ show time ++ ".png"
+
+    nextSample goal initialDistance initialSample 1 surface
+
+
+nextSample :: (Fractional a, Ord a) => ByteString -> a -> Sample -> Int -> Surface -> IO ()
+nextSample _ _ _ 1800 _ = return ()
+
+nextSample _ d _ _ _ | d < 0.1 = return ()
+
+nextSample goal previousDistance previousSample successes surface = do
   currentSample <- mutateSample 0.1 previousSample
 
   currentData <- draw currentSample surface >>= imageSurfaceGetData
@@ -30,12 +48,14 @@ evolveSample goal previousDistance previousSample generation surface = do
 
   if currentDistance < previousDistance
     then do
-      surfaceWriteToPNG surface $ addZero generation ++ show generation ++ "g.png"
+      time <- epochTime
 
-      evolveSample goal currentDistance currentSample (generation+1) surface
+      surfaceWriteToPNG surface $ "images/" ++ show time ++ ".png"
+
+      nextSample goal currentDistance currentSample (successes+1) surface
 
     else
-      evolveSample goal previousDistance previousSample (generation+1) surface
+      nextSample goal previousDistance previousSample successes surface
 
  where
    addZero n = if n < 10 then "0" else "" 
