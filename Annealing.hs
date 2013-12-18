@@ -9,6 +9,7 @@ import Graphics.Rendering.Cairo
 
 import System.Random
 import System.Posix.Time
+import Control.Monad (when)
 import Control.Monad.IO.Class
 
 import qualified Data.ByteString as ByteString
@@ -38,7 +39,10 @@ nextSample :: ByteString -> Int -> Sample -> Int -> Surface -> IO ()
 nextSample _ 0 _ _ _ = return ()
 
 nextSample goal previousDistance previousSample successes surface = do
-  currentSample <- mutateSample 0.1 previousSample
+  let relativeDistance = fromIntegral previousDistance / fromIntegral (4 * 255 * ByteString.length goal)
+      delta = if relativeDistance < 0.05 then 0.05 else 0.1
+
+  currentSample <- mutateSample delta previousSample
 
   currentData <- draw currentSample surface >>= imageSurfaceGetData
 
@@ -46,11 +50,14 @@ nextSample goal previousDistance previousSample successes surface = do
 
   if currentDistance < previousDistance
     then do
-      time <- epochTime
+      let successes' = successes + 1
 
-      surfaceWriteToPNG surface $ "images/" ++ show time ++ ".png"
+      when (successes' `rem` 100 == 0) $ do
+        time <- epochTime
 
-      nextSample goal currentDistance currentSample (successes+1) surface
+        surfaceWriteToPNG surface $ "images/" ++ show time ++ ".png"
+
+      nextSample goal currentDistance currentSample successes' surface
 
     else
       nextSample goal previousDistance previousSample successes surface

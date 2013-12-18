@@ -4,8 +4,9 @@ module Polygon where
 
 
 import System.Random
-import Control.Monad (forM_)
+import Control.Monad (forM_, replicateM)
 import Control.Monad.IO.Class
+import Control.Applicative
 
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
@@ -31,16 +32,10 @@ data Polygon = Polygon { red         :: !Double
 
 newPolygon :: MonadIO m => Int -> Size -> m Polygon
 newPolygon numVertices (width, height) = do
-  g <- liftIO newStdGen
+  [red, green, blue, alpha] <- liftIO $ replicateM 4 $ randomRIO (0, 1)
 
-  let [red, green, blue, alpha] = take 4 $ randomRs (0, 1 :: Double) g
-
-  gx <- liftIO newStdGen
-  gy <- liftIO newStdGen
-
-  let xs = randomRs (0, fromIntegral width) gx
-      ys = randomRs (0, fromIntegral height) gy
-      vertices = take numVertices (zip xs ys)
+  vertices <- liftIO $ replicateM numVertices $ (,) <$> randomRIO (0, fromIntegral width)
+                                                   <*> randomRIO (0, fromIntegral height)
 
   return (Polygon red green blue alpha (width, height) numVertices vertices)
 
@@ -52,14 +47,13 @@ newSample numVertices size numPolygons =
   
 mutatePolygon :: MonadIO m => Double -> Polygon -> m Polygon
 mutatePolygon delta p@Polygon {..} = do
-  gen <- liftIO newStdGen
-
   chance <- liftIO $ randomRIO (0, 1 :: Double)
 
   if chance < 0.5
     then do
-      let variations = take 4 $ shift delta gen
-          [newRed, newGreen, newBlue, newAlpha] = map (normalize 1) $ zipWith (+) variations [red,green,blue,alpha]
+      variations <- liftIO $ replicateM 4 $ randomRIO (-delta, delta)
+
+      let [newRed, newGreen, newBlue, newAlpha] = map (normalize 1) $ zipWith (+) variations [red,green,blue,alpha]
 
       return p { red   = newRed
                , green = newGreen
@@ -68,19 +62,17 @@ mutatePolygon delta p@Polygon {..} = do
                }
 
     else do
-      gen1 <- liftIO newStdGen
-
-      let width  = fromIntegral (fst size)
-          height = fromIntegral (snd size)
-          variationsX  = take numVertices $ shift (width * delta)  gen
-          variationsY  = take numVertices $ shift (height * delta) gen1
-          newVertices  = map (normalizePosition size) $ zipWith move vertices (zip variationsX variationsY) 
+      let varWidth  = delta * fromIntegral (fst size)
+          varHeight = delta * fromIntegral (snd size)
+      
+      variations <- liftIO $ replicateM numVertices $ (,) <$> randomRIO (-varWidth, varWidth)
+                                                          <*> randomRIO (-varHeight, varHeight)
+      
+      let newVertices  = map (normalizePosition size) $ zipWith move vertices variations
           
       return p { vertices = newVertices }
       
  where
-  shift d g = randomRs (-d, d) g
-
   normalize top = max 0 . min top
 
   normalizePosition (w,h) (x,y) = (normalize w' x, normalize h' y)
